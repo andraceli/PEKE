@@ -1,4 +1,4 @@
-# PEKE (Python Terminal)
+# PEKE Pet Keeping Game (Python Terminal)
 
 **Status:** 🚧 Under Construction  
 This project is a work-in-progress. You may encounter bugs or unfinished features. Feedback and bug reports are welcome!
