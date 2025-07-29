@@ -20,6 +20,12 @@ MAPS = {
     "3": "Cave"
 }
 
+MAP_DESCRIPTIONS = {
+    "Zoo": "An abandoned zoo, where you might find leftover coins or rare chocolates.",
+    "Jungle": "A lush jungle full of trees and plants. Mine for woods and leaves.",
+    "Cave": "A dark cave, maybe you'll find shells or even golds hidden in the shadows."
+}
+
 MAP_ITEMS = {
     "Zoo": ["Unwanted Coins", "Chocolate"],
     "Jungle": ["Woods", "Leaves"],
@@ -50,9 +56,14 @@ SHOP_ITEMS = {
 }
 
 DEFAULT_DATA = {
-    "animal": None,
-    "coins": 0,
+    "animal_type": None,
+    "animal_name": None,
+    "lvl": 1,
+    "xp": 0,
+    "xp_limit": 10,
     "energy": 10,
+    "energy_limit": 10,
+    "coins": 100,
     "items": {},
     "foods": [],
     "chocolates_used": 0,
@@ -83,15 +94,40 @@ def prompt_int(msg, allowed):
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
+# --- XP/Leveling Functions ---
+def add_xp(data, amount=5):
+    data["xp"] += amount
+    leveled_up = False
+    while data["xp"] >= data["xp_limit"]:
+        data["xp"] -= data["xp_limit"]
+        data["lvl"] += 1
+        # New XP limit: random divisible by 5, 10-100
+        xp_limit = random.choice([x for x in range(10, 101, 5)])
+        data["xp_limit"] = xp_limit
+        # New energy limit: random divisible by 10, 10-100
+        energy_limit = random.choice([x for x in range(10, 101, 10)])
+        data["energy_limit"] = energy_limit
+        # When leveling up, refill energy to new limit
+        data["energy"] = energy_limit
+        leveled_up = True
+        print(f"\nCongratulations! {data['animal_name']} leveled up to {data['lvl']}!")
+        print(f"XP needed for next level: {data['xp_limit']}")
+        print(f"New energy limit: {data['energy_limit']}")
+    return leveled_up
+
 # --- Game Introduction ---
 def show_introduction():
     clear_screen()
     print("="*40)
     print("Welcome to: Pet Keeping")
     print("="*40)
-    print("\nDescription:\nkeeping a pet being abandoned by the circus as dysfunctional animal for entertainment, the only thing they end up with is jungle, the worst is death.\n")
-    print("Prologue:\nwhen the only hope of your life is the house of entertainment, what if one day everything will be gone, what will happen if i die?\n")
-    print("Side story:\nthe only thing i see is i am surrounded by excellent animals, in the end you don't know what's going on, is it bad or good?\n")
+    print("\nDescription:\nKeeping a pet being abandoned by the circus as dysfunctional animal for entertainment, the only thing they end up with is jungle, the worst is death.\n")
+    input("\nPress Enter to continue...")
+    clear_screen()
+    print("\nWhen the only hope of your life is the house of entertainment, what if one day everything will be gone, what will happen if I die?\n")
+    input("\nPress Enter to continue...")
+    clear_screen()
+    print("\nThe only thing I see is I am surrounded by excellent animals, in the end you don't know what's going on, is it bad or good?\n")
     input("\nPress Enter to continue...")
 
 def choose_animal():
@@ -100,17 +136,20 @@ def choose_animal():
     for k, v in ANIMALS.items():
         print(f"{k}. {v}")
     choice = prompt_int("Enter animal number: ", ANIMALS.keys())
-    animal = ANIMALS[choice]
-    print(f"You chose: {animal}")
+    animal_type = ANIMALS[choice]
+    animal_name = input(f"What would you like to name your {animal_type}? ").strip()
+    while not animal_name:
+        animal_name = input("Please enter a valid name: ").strip()
+    print(f"You chose: {animal_type} named {animal_name}")
     input("Press Enter to continue...")
-    return animal
+    return animal_type, animal_name
 
 # --- Main Menu ---
 def main_menu(data):
     while True:
         clear_screen()
         print("=== MAIN MENU ===")
-        print(f"Pet: {data['animal']} | Energy: {data['energy']} | Coins: {data['coins']}")
+        print(f"Name: {data['animal_name']} | Animal: {data['animal_type']} | Level: {data['lvl']} | XP: {data['xp']}/{data['xp_limit']} | Energy: {data['energy']}/{data['energy_limit']} | Coins: {data['coins']}")
         print("1. Jobs")
         print("2. Shop")
         print("3. Information")
@@ -137,9 +176,9 @@ def jobs(data):
     while True:
         clear_screen()
         print("--- JOBS ---")
-        print(f"Energy: {data['energy']} | Coins: {data['coins']}")
+        print(f"Energy: {data['energy']}/{data['energy_limit']} | Coins: {data['coins']}")
         for k, v in MAPS.items():
-            print(f"{k}. {v}")
+            print(f"{k}. {v} - {MAP_DESCRIPTIONS[v]}")
         print("0. Back")
         choice = input("Choose a map: ")
         if choice == "0":
@@ -195,18 +234,24 @@ def shop(data):
             print("Not enough coins!")
             input("Press Enter to continue...")
             continue
-        if data['animal'] not in item['for']:
-            print(f"{item['name']} cannot be used for {data['animal']}.")
+        if data['animal_type'] not in item['for']:
+            print(f"{item['name']} cannot be used for {data['animal_type']}.")
             input("Press Enter to continue...")
             continue
         data['coins'] -= item['price']
         if item['name'] == "Loaders (Chocolate)":
-            data['energy'] += 10
+            energy_gain = 10
+            data['energy'] += energy_gain
+            if data['energy'] > data['energy_limit']:
+                data['energy'] = data['energy_limit']
             data['chocolates_used'] += 1
-            print("Energy restored by 10!")
+            print(f"Energy restored by {energy_gain}! ({data['energy']}/{data['energy_limit']})")
         else:
             data['foods'].append(item['name'])
-            print(f"Bought {item['name']} for your {data['animal']}.")
+            print(f"Bought {item['name']} for your {data['animal_name']} ({data['animal_type']}).")
+            leveled_up = add_xp(data, 5)
+            if leveled_up:
+                print(f"{data['animal_name']} has leveled up!")
         save_data(data)
         input("Press Enter to continue...")
 
@@ -217,7 +262,7 @@ def info(data):
     print("\nMaps and Items:")
     for k, v in MAPS.items():
         items = ', '.join(MAP_ITEMS[v])
-        print(f"- {v}: {items}")
+        print(f"- {v}: {items}\n  {MAP_DESCRIPTIONS[v]}")
     print("\nFoods for animals:")
     for k, v in ANIMALS.items():
         foods = []
@@ -273,9 +318,11 @@ def sell_resources(data):
 def main():
     ensure_data()
     data = load_data()
-    if not data["animal"]:
+    if not data.get("animal_type"):
         show_introduction()
-        data["animal"] = choose_animal()
+        animal_type, animal_name = choose_animal()
+        data["animal_type"] = animal_type
+        data["animal_name"] = animal_name
         save_data(data)
     main_menu(data)
 
